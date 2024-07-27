@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-bucket"
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      AccessControl: PublicRead
+
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  CloudFrontOriginAccessIdentity:
+    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${AWS::StackName} Origin Access Identity"
+
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - Id: !Sub "${S3Bucket}-origin"
+            DomainName: !GetAtt S3Bucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub "${S3Bucket}-origin"
+          ViewerProtocolPolicy: "redirect-to-https"
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: "none"
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        DefaultRootObject: index.html
+
+Outputs:
+  WebsiteURL:
+    Description: "URL for static website"
+    Value: !Sub "http://${S3Bucket}.s3-website-${AWS::Region}.amazonaws.com"
+  CloudFrontURL:
+    Description: "CloudFront URL"
+    Value: !GetAtt CloudFrontDistribution.DomainName
