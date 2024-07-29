@@ -1,4 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create a fully functional static website using S3 and CloudFront.
+
 Resources:
   S3Bucket:
     Type: "AWS::S3::Bucket"
@@ -7,7 +9,12 @@ Resources:
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
-      AccessControl: PublicRead
+
+  CloudFrontOriginAccessIdentity:
+    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "Access identity for ${S3Bucket}"
 
   S3BucketPolicy:
     Type: "AWS::S3::BucketPolicy"
@@ -16,48 +23,42 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
-            Principal: "*"
+          - Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity.CloudFrontOriginAccessIdentityId}"
             Action: "s3:GetObject"
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  CloudFrontOriginAccessIdentity:
-    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub "${AWS::StackName} Origin Access Identity"
 
   CloudFrontDistribution:
     Type: "AWS::CloudFront::Distribution"
     Properties:
       DistributionConfig:
-        Enabled: true
         Origins:
-          - Id: !Sub "${S3Bucket}-origin"
+          - Id: S3Origin
             DomainName: !GetAtt S3Bucket.DomainName
             S3OriginConfig:
-              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity.CloudFrontOriginAccessIdentityId}"
+        Enabled: true
+        DefaultRootObject: index.html
         DefaultCacheBehavior:
-          TargetOriginId: !Sub "${S3Bucket}-origin"
-          ViewerProtocolPolicy: "redirect-to-https"
           AllowedMethods:
             - GET
             - HEAD
           CachedMethods:
             - GET
             - HEAD
+          TargetOriginId: S3Origin
           ForwardedValues:
             QueryString: false
             Cookies:
-              Forward: "none"
+              Forward: none
+          ViewerProtocolPolicy: "redirect-to-https"
         ViewerCertificate:
           CloudFrontDefaultCertificate: true
-        DefaultRootObject: index.html
 
 Outputs:
   WebsiteURL:
-    Description: "URL for static website"
-    Value: !Sub "http://${S3Bucket}.s3-website-${AWS::Region}.amazonaws.com"
-  CloudFrontURL:
-    Description: "CloudFront URL"
-    Value: !GetAtt CloudFrontDistribution.DomainName
+    Description: "URL for the static website hosted on CloudFront"
+    Value: !GetAtt "CloudFrontDistribution.DomainName"
+    Export:
+      Name: WebsiteURL
