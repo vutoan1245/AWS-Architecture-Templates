@@ -25,7 +25,7 @@ Resources:
         Statement:
           - Effect: "Allow"
             Principal:
-              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity.CloudFrontOriginAccessIdentityId}"
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}"
             Action: "s3:GetObject"
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
@@ -37,7 +37,7 @@ Resources:
           - Id: S3Origin
             DomainName: !GetAtt S3Bucket.DomainName
             S3OriginConfig:
-              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity.CloudFrontOriginAccessIdentityId}"
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
         Enabled: true
         DefaultRootObject: index.html
         DefaultCacheBehavior:
