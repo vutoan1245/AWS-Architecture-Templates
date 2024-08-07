@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 
 Parameters:
   NotificationBucket:
-    Description: S3 bucket name that is the trigger to lambda
+    Description: "S3 bucket name that triggers the Lambda function"
     Type: String
 
 Resources:
@@ -16,9 +16,9 @@ Resources:
       Code:
         ZipFile: |
           import json
-          def lambda_handler(event,context):
+          def lambda_handler(event, context):
               print(event)
-              return "Hello... This is a test S3 trigger Lambda Function"
+              print("Hello from s3 trigger Lambda")
       Handler: index.lambda_handler
       Role: !GetAtt LambdaIAMRole.Arn
       Runtime: python3.9
@@ -60,10 +60,10 @@ Resources:
 
   S3BucketNotification:
     Type: AWS::S3::Bucket
-    DependsOn:
-      - LambdaInvokePermission
+    DependsOn: LambdaInvokePermission
     Metadata:
-      Comment: The suppressed guard rules are not vital for this sample but should be considered for production infrastructure
+      Comment: |
+        The suppressed guard rules are not vital for this sample but should be considered for production infrastructure
       guard:
         SuppressedRules:
           - S3_BUCKET_DEFAULT_LOCK_ENABLED
