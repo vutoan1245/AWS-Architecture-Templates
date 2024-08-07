@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS CloudFormation Template to create a Security Group with all options
+
+Resources:
+  MySecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "My security group"
+      VpcId: vpc-12345678 # Replace with your VPC ID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: "Allow SSH from anywhere"
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "Allow HTTP from anywhere"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "Allow HTTPS from anywhere"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+          Description: "Allow all outbound traffic"
+      Tags:
+        - Key: Name
+          Value: MySecurityGroup
+
+Outputs:
+  SecurityGroupId:
+    Description: The ID of the Security Group
+    Value: !Ref MySecurityGroup
+
+  SecurityGroupName:
+    Description: The name of the Security Group
+    Value: !GetAtt MySecurityGroup.GroupName
+
+  SecurityGroupVpcId:
+    Description: The VPC ID of the Security Group
+    Value: !GetAtt MySecurityGroup.VpcId
