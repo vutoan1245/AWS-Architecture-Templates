@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS CloudFormation Template to create a Placement Group
+
+Resources:
+  MyPlacementGroup:
+    Type: "AWS::EC2::PlacementGroup"
+    Properties:
+      # options: cluster, spread, partition
+      Strategy: "cluster"
+      PartitionCount: 0
+      SpreadLevel: "host"
+
+Outputs:
+  PlacementGroupName:
+    Description: The name of the Placement Group
+    Value: !Ref MyPlacementGroup
