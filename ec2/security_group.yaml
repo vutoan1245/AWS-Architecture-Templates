@@ -6,8 +6,8 @@ Resources:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: "My security group"
-      VpcId: vpc-12345678 # Replace with your VPC ID
-      SecurityGroupIngress:
+      VpcId: vpc-12345678 # Replace with your VPC ID, specifies the VPC for the security group
+      SecurityGroupIngress: # Inbound rules for the security group
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
@@ -23,25 +23,28 @@ Resources:
           ToPort: 443
           CidrIp: 0.0.0.0/0
           Description: "Allow HTTPS from anywhere"
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          FromPort: -1
-          ToPort: -1
-          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress: # Outbound rules for the security group
+        - IpProtocol: -1 # Protocol type (-1 means all)
+          FromPort: -1 # Start port (-1 means all)
+          ToPort: -1 # End port (-1 means all)
+          CidrIp: 0.0.0.0/0 # Allow access to any IP address
           Description: "Allow all outbound traffic"
       Tags:
         - Key: Name
           Value: MySecurityGroup
 
 Outputs:
+  # Output to provide the ID of the Security Group
   SecurityGroupId:
     Description: The ID of the Security Group
     Value: !Ref MySecurityGroup
 
+  # Output to provide the name of the Security Group
   SecurityGroupName:
     Description: The name of the Security Group
     Value: !GetAtt MySecurityGroup.GroupName
 
+  # Output to provide the VPC ID of the Security Group
   SecurityGroupVpcId:
     Description: The VPC ID of the Security Group
     Value: !GetAtt MySecurityGroup.VpcId
