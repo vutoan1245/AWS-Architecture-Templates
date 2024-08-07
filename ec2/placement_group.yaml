@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: AWS CloudFormation Template to create a Placement Group
+Description: AWS CloudFormation Template to create a Placement Group with all possible settings and outputs
 
 Resources:
   MyPlacementGroup:
@@ -16,3 +16,19 @@ Outputs:
   PlacementGroupName:
     Description: The name of the Placement Group
     Value: !Ref MyPlacementGroup
+
+  PlacementGroupArn:
+    Description: The ARN of the Placement Group
+    Value: !GetAtt MyPlacementGroup.Arn
+
+  PlacementGroupId:
+    Description: The ID of the Placement Group
+    Value: !GetAtt MyPlacementGroup.GroupId
+
+  PlacementGroupPartitionCount:
+    Description: The number of partitions for the Placement Group
+    Value: !GetAtt MyPlacementGroup.PartitionCount
+
+  PlacementGroupStrategy:
+    Description: The strategy of the Placement Group
+    Value: !GetAtt MyPlacementGroup.Strategy
