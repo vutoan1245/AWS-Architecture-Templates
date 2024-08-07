@@ -2,36 +2,97 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: AWS CloudFormation Template to deploy a simple website on EC2
 
 Resources:
-  # Security Group
+  # Security Group to allow HTTP access on port 80
   MySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Enable HTTP access on port 80
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: "80"
-          ToPort: "80"
-          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp # Protocol type
+          FromPort: "80" # Start port
+          ToPort: "80" # End port
+          CidrIp: 0.0.0.0/0 # Allow from any IP address
 
-  # EC2 Instance
+  # IAM Role to allow EC2 to access AWS resources
+  MyInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: MyInstancePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: "*"
+
+  # Instance Profile to attach the IAM Role to the EC2 instance
+  MyInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+        - Ref: MyInstanceRole
+
+  # EC2 Instance to host the website
   MyEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro
+      InstanceType: t2.micro # EC2 instance type
+      KeyName: my-key-pair # Specify your key pair name
       SecurityGroups:
-        - Ref: MySecurityGroup
-      ImageId: ami-0c11a84584d4e09dd
-      UserData:
+        - Ref: MySecurityGroup # Reference to the Security Group defined above
+      ImageId: ami-0c11a84584d4e09dd # Amazon Machine Image (AMI) ID
+      IamInstanceProfile: !Ref MyInstanceProfile # Attach the IAM Instance Profile
+      BlockDeviceMappings: # Define storage configuration
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8 # Size in GiB
+            VolumeType: gp2 # General Purpose SSD
+      UserData: # Commands to run on instance launch
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum update -y
-          yum install -y httpd
-          systemctl start httpd
-          systemctl enable httpd
-          echo "<h1>Welcome to my website</h1>" > /var/www/html/index.html
+          yum update -y  # Update all packages
+          yum install -y httpd  # Install Apache HTTP Server
+          systemctl start httpd  # Start Apache service
+          systemctl enable httpd  # Enable Apache service to start on boot
+          echo "<h1>Welcome to my website</h1>" > /var/www/html/index.html  # Create a simple HTML file
+      Tags: # Add tags to the EC2 instance
+        - Key: Name
+          Value: MyWebsiteInstance
 
 Outputs:
+  # Output to provide the URL of the website
   WebsiteURL:
-    Description: URL of the website
+    Description: URL of the website # Description of the output
     Value:
-      Fn::Sub: http://${MyEC2Instance.PublicDnsName}
+      Fn::Sub: http://${MyEC2Instance.PublicDnsName} # Construct the URL using the public DNS name of the EC2 instance
+
+  # Output to provide the Instance ID of the EC2 instance
+  InstanceId:
+    Description: Instance ID of the EC2 instance
+    Value: !Ref MyEC2Instance
+
+  # Output to provide the Public IP address of the EC2 instance
+  PublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt MyEC2Instance.PublicIp
+
+  # Output to provide the Security Group ID
+  SecurityGroupId:
+    Description: Security Group ID
+    Value: !Ref MySecurityGroup
+
+  # Output to provide the IAM Role ARN
+  InstanceRoleARN:
+    Description: IAM Role ARN
+    Value: !GetAtt MyInstanceRole.Arn
