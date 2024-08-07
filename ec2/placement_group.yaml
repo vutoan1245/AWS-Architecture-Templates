@@ -5,10 +5,12 @@ Resources:
   MyPlacementGroup:
     Type: "AWS::EC2::PlacementGroup"
     Properties:
-      # options: cluster, spread, partition
-      Strategy: "cluster"
-      PartitionCount: 0
-      SpreadLevel: "host"
+      Strategy: "cluster" # Can be "cluster", "spread", or "partition"
+      PartitionCount: 0 # Required if Strategy is "partition"
+      SpreadLevel: "host" # Valid values are "host" and "rack"
+      Tags:
+        - Key: Name
+          Value: MyPlacementGroup
 
 Outputs:
   PlacementGroupName:
