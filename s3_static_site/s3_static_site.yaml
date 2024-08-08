@@ -1,21 +1,39 @@
 AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: The name of the S3 bucket
+  IndexDocument:
+    Type: String
+    Default: index.html
+    Description: The index document for the website
+  ErrorDocument:
+    Type: String
+    Default: error.html
+    Description: The error document for the website
+
 Resources:
   S3Bucket:
     Type: "AWS::S3::Bucket"
     Properties:
-      PublicAccessBlockConfiguration:
+      BucketName: !Ref BucketName
+      AccessControl: PublicRead # Ensure the bucket is publicly readable
+      PublicAccessBlockConfiguration: # Configuration to allow public access
         BlockPublicAcls: false
         BlockPublicPolicy: false
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
       WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: error.html
+        IndexDocument: !Ref IndexDocument
+        ErrorDocument: !Ref ErrorDocument
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
+
   BucketPolicy:
     Type: "AWS::S3::BucketPolicy"
     Properties:
+      Bucket: !Ref S3Bucket
       PolicyDocument:
         Id: MyPolicy
         Version: 2012-10-17
@@ -24,12 +42,12 @@ Resources:
             Effect: Allow
             Principal: "*"
             Action: "s3:GetObject"
-            Resource: !Join
+            Resource: !Join # Apply to all objects in the bucket
               - ""
               - - "arn:aws:s3:::"
                 - !Ref S3Bucket
                 - /*
-      Bucket: !Ref S3Bucket
+
 Outputs:
   WebsiteURL:
     Value: !GetAtt
@@ -44,3 +62,11 @@ Outputs:
           - S3Bucket
           - DomainName
     Description: Name of S3 bucket to hold website content
+  S3BucketName:
+    Value: !Ref S3Bucket
+    Description: Name of the S3 bucket
+  S3BucketArn:
+    Value: !GetAtt
+      - S3Bucket
+      - Arn
+    Description: ARN of the S3 bucket
