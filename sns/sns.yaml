@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS CloudFormation Template to create an SNS topic with email subscription.
+
+Parameters:
+  TopicName:
+    Type: String
+    Default: MySNSTopic
+    Description: The name of the SNS topic.
+    AllowedPattern: "^[a-zA-Z0-9_-]+$"
+    ConstraintDescription: Must be a valid SNS topic name.
+
+  DisplayName:
+    Type: String
+    Default: My SNS Topic
+    Description: The display name for the SNS topic.
+
+  EmailAddress:
+    Type: String
+    Description: The email address to subscribe to the SNS topic.
+    AllowedPattern: '^[^@]+@[^@]+\.[^@]+$'
+    ConstraintDescription: Must be a valid email address.
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref TopicName
+      DisplayName: !Ref DisplayName
+
+  SNSEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref EmailAddress
+      Protocol: email
+      TopicArn: !Ref SNSTopic
+
+Outputs:
+  TopicArn:
+    Description: ARN of the SNS topic
+    Value: !Ref SNSTopic
+    Export:
+      Name: SNS-Topic-Arn
+
+  SubscriptionArn:
+    Description: ARN of the email subscription
+    Value: !Ref SNSEmailSubscription
+
+  TopicNameOutput:
+    Description: Name of the SNS topic
+    Value: !Ref TopicName
+    Export:
+      Name: SNS-Topic-Name
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: SNS Topic Configuration
+        Parameters:
+          - TopicName
+          - DisplayName
+      - Label:
+          default: Email Subscription Configuration
+        Parameters:
+          - EmailAddress
+    ParameterLabels:
+      TopicName:
+        default: SNS Topic Name
+      DisplayName:
+        default: Display Name
+      EmailAddress:
+        default: Subscription Email Address
