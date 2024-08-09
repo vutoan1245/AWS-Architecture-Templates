@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create an EC2 instance with an Elastic IP
+
+Resources:
+  # Define the EC2 instance
+  MyEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0c55b159cbfafe1f0 # Replace with a valid AMI ID for your region
+      KeyName: MyKeyPair # Replace with your key pair name
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+
+  # Define the Security Group for the EC2 instance
+  MySecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Allow SSH and HTTP
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  # Define the Elastic IP
+  MyElasticIP:
+    Type: "AWS::EC2::EIP"
+
+  # Associate the Elastic IP with the EC2 instance
+  MyEIPAssociation:
+    Type: "AWS::EC2::EIPAssociation"
+    Properties:
+      InstanceId: !Ref MyEC2Instance
+      EIP: !Ref MyElasticIP
+
+Outputs:
+  InstanceId:
+    Description: "InstanceId of the newly created EC2 instance"
+    Value: !Ref MyEC2Instance
+  EIP:
+    Description: "Elastic IP address"
+    Value: !Ref MyElasticIP
