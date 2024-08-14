@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: AWS CloudFormation template for creating an Amazon SQS Standard Queue with best practices.
+
+Parameters:
+  DelaySeconds:
+    Description: The delay in seconds before delivering messages in the queue. Valid values range from 0 to 900 seconds (15 minutes). Defaults to 5 seconds.
+    Type: Number
+    Default: 5
+
+  MaximumMessageSize:
+    Description: The maximum message size in bytes that Amazon SQS allows before rejecting it. Valid values range from 1024 bytes (1 KiB) to 262144 bytes (256 KiB). Defaults to 256 KiB.
+    Type: Number
+    Default: 262144
+
+  MessageRetentionPeriod:
+    Description: The duration (in seconds) that Amazon SQS retains a message before it is automatically deleted. Valid values range from 60 seconds (1 minute) to 1209600 seconds (14 days). Defaults to 4 days (345600 seconds).
+    Type: Number
+    Default: 345600
+
+  ReceiveMessageWaitTimeSeconds:
+    Description: The maximum wait time in seconds for a ReceiveMessage call to wait for a message to arrive in the queue. This reduces the number of empty receives if messages are sent infrequently. Valid values range from 0 to 20 seconds. Defaults to 0 seconds.
+    Type: Number
+    Default: 0
+
+  UsedeadletterQueue:
+    Description: Boolean flag to determine if a dead-letter queue should be created and associated with the main queue. Dead-letter queues capture messages that cannot be processed successfully. Defaults to false.
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+
+  VisibilityTimeout:
+    Description: The visibility timeout in seconds for the queue. This defines the time a message is hidden from other consumers after being retrieved. Should be set longer than the time it takes to process and delete the message. Maximum is 12 hours (43200 seconds). Defaults to 5 seconds.
+    Type: Number
+    Default: 5
+
+  KmsMasterKeyIdForSqs:
+    Description: Optional. Specify the AWS KMS Key ID or Alias to enable server-side encryption for the SQS queue. Leave blank to disable encryption. Defaults to using the AWS-managed key for SQS.
+    Type: String
+    Default: alias/aws/sqs
+
+Mappings: {}
+
+Conditions:
+  # Condition to determine whether to create a Dead Letter Queue based on the UsedeadletterQueue parameter
+  CreateDeadLetterQueue: !Equals
+    - !Ref UsedeadletterQueue
+    - "true"
+
+  # Condition to check if a KMS key is provided for enabling encryption
+  IsKmsExist: !Not
+    - !Equals
+      - "" # Check if KmsMasterKeyIdForSqs is not empty
+      - !Ref KmsMasterKeyIdForSqs
+
+Resources:
+  # Main SQS Queue resource
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: !Ref DelaySeconds
+      MaximumMessageSize: !Ref MaximumMessageSize
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      ReceiveMessageWaitTimeSeconds: !Ref ReceiveMessageWaitTimeSeconds
+      KmsMasterKeyId: !If
+        - IsKmsExist
+        - !Ref KmsMasterKeyIdForSqs
+        - !Ref AWS::NoValue # Do not set encryption if no KMS key is provided
+      RedrivePolicy: !If
+        - CreateDeadLetterQueue
+        - # Set the redrive policy if the dead-letter queue is enabled
+          deadLetterTargetArn: !GetAtt MyDeadLetterQueue.Arn
+          maxReceiveCount: 5 # Set the maxReceiveCount to 5 as default
+        - !Ref AWS::NoValue # No redrive policy if dead-letter queue is disabled
+      VisibilityTimeout: !Ref VisibilityTimeout
+
+  # Dead Letter Queue resource, created only if CreateDeadLetterQueue condition is true
+  MyDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600 # Maximum retention period of 14 days (1209600 seconds)
+    Condition: CreateDeadLetterQueue
+
+Outputs:
+  # Outputs for the main SQS Queue
+  QueueURL:
+    Description: The URL of the newly created SQS Queue.
+    Value: !Ref SQSQueue
+
+  QueueARN:
+    Description: The Amazon Resource Name (ARN) of the newly created SQS Queue.
+    Value: !GetAtt SQSQueue.Arn
+
+  QueueName:
+    Description: The name of the newly created SQS Queue.
+    Value: !GetAtt SQSQueue.QueueName
+
+  # Outputs for the Dead Letter Queue, only if it was created
+  DeadLetterQueueURL:
+    Description: The URL of the dead-letter queue (if created).
+    Value: !Ref MyDeadLetterQueue
+    Condition: CreateDeadLetterQueue
+
+  DeadLetterQueueARN:
+    Description: The Amazon Resource Name (ARN) of the dead-letter queue (if created).
+    Value: !GetAtt MyDeadLetterQueue.Arn
+    Condition: CreateDeadLetterQueue
