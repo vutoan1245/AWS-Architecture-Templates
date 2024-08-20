@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Amazon DocumentDB Cluster
+
+Parameters:
+  DBInstanceClass:
+    Type: String
+    Default: db.r5.large
+    AllowedValues:
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.12xlarge
+      - db.r5.24xlarge
+    Description: The instance type for the DocumentDB instances.
+
+  DBClusterIdentifier:
+    Type: String
+    Default: MyDocDBCluster
+    Description: The identifier for the DocumentDB cluster.
+
+  MasterUsername:
+    Type: String
+    NoEcho: true
+    Description: The master username for the DocumentDB cluster.
+
+  MasterUserPassword:
+    Type: String
+    NoEcho: true
+    Description: The master user password for the DocumentDB cluster.
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID to launch the DocumentDB cluster.
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The subnet IDs to launch the DocumentDB instances.
+
+Resources:
+  DocumentDBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: DocumentDB Cluster Parameter Group
+      Family: docdb4.0
+      Parameters:
+        tls: enabled
+        audit_logs: enabled
+
+  DocumentDBCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: docdb
+      EngineVersion: "4.0.0"
+      DBClusterIdentifier: !Ref DBClusterIdentifier
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      DBClusterParameterGroupName: !Ref DocumentDBClusterParameterGroup
+      VpcSecurityGroupIds:
+        - !Ref DocumentDBSecurityGroup
+      DBSubnetGroupName: !Ref DocumentDBSubnetGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: Sun:05:00-Sun:06:00
+      StorageEncrypted: true
+      DeletionProtection: true
+      EnableCloudwatchLogsExports:
+        - audit
+        - profiler
+
+  DocumentDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DocumentDBCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: docdb
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: true
+
+  DocumentDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Security Group for DocumentDB
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 27017
+          ToPort: 27017
+          CidrIp: 0.0.0.0/0
+
+  DocumentDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for DocumentDB
+      SubnetIds: !Ref SubnetIds
+
+Outputs:
+  DocumentDBClusterEndpoint:
+    Description: The endpoint address of the DocumentDB cluster
+    Value: !GetAtt DocumentDBCluster.Endpoint
+
+  DocumentDBClusterReaderEndpoint:
+    Description: The reader endpoint address of the DocumentDB cluster
+    Value: !GetAtt DocumentDBCluster.ReaderEndpoint
+
+  DocumentDBClusterId:
+    Description: The cluster identifier
+    Value: !Ref DocumentDBCluster
