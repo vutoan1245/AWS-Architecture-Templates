@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: This template deploys an Amazon RDS database instance with provisioned IOPS (Input/Output Operations Per Second).
+
+Parameters:
+  DBUser:
+    Description: The username for the database administrator account.
+    Type: String
+    NoEcho: "true"
+    MinLength: "1"
+    MaxLength: "16"
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: The username must start with a letter and contain only alphanumeric characters.
+
+  DBName:
+    Description: The name of the database to create.
+    Type: String
+    Default: MyDatabase
+    MinLength: "1"
+    MaxLength: "64"
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: The database name must start with a letter and contain only alphanumeric characters.
+
+  DBAllocatedStorage:
+    Description: The size of the database (GB).
+    Type: Number
+    Default: 100
+    MinValue: 20
+    MaxValue: 6144
+    ConstraintDescription: Must be between 20 and 6144 GB.
+
+  DBInstanceClass:
+    Description: The database instance type.
+    Type: String
+    Default: db.t3.small
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.m5.large
+      - db.m5.xlarge
+      - db.m5.2xlarge
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+    ConstraintDescription: Must be a valid RDS instance type.
+
+  EngineVersion:
+    Description: The version of the database engine to use.
+    Type: String
+    Default: "8.0"
+    AllowedValues:
+      - "5.7"
+      - "8.0"
+      - "10.5"
+      - "13"
+    ConstraintDescription: Must be a valid MySQL or MariaDB version.
+
+  DBSubnetGroupName:
+    Description: The DB subnet group where the instance is deployed.
+    Type: AWS::RDS::DBSubnetGroup::Name
+
+  VPCSecurityGroupIds:
+    Description: The VPC security group IDs for the database.
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  MultiAZ:
+    Description: Specifies if the database instance is a Multi-AZ deployment.
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    ConstraintDescription: Must be either true or false.
+
+  BackupRetentionPeriod:
+    Description: The number of days to retain backups.
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+    ConstraintDescription: Must be between 1 and 35 days.
+
+  StorageType:
+    Description: The storage type to be associated with the DB instance.
+    Type: String
+    Default: "io1"
+    AllowedValues:
+      - "standard"
+      - "gp2"
+      - "io1"
+    ConstraintDescription: Must be either standard, gp2, or io1.
+
+  Iops:
+    Description: The amount of provisioned IOPS (Input/Output Operations Per Second) to be initially allocated for the database instance.
+    Type: Number
+    Default: 1000
+    MinValue: 1000
+    MaxValue: 40000
+    ConstraintDescription: Must be between 1000 and 40000 IOPS.
+
+  AutoMinorVersionUpgrade:
+    Description: Indicates that minor engine upgrades will be applied automatically to the DB instance during the maintenance window.
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+    ConstraintDescription: Must be either true or false.
+
+  DBParameterGroupName:
+    Description: The name of an existing DB parameter group.
+    Type: String
+    Default: default.mysql8.0
+
+  PreferredBackupWindow:
+    Description: The daily time range during which automated backups are performed.
+    Type: String
+    Default: "07:00-09:00"
+
+  PreferredMaintenanceWindow:
+    Description: The weekly time range during which system maintenance can occur.
+    Type: String
+    Default: "Sun:23:00-Mon:01:30"
+
+  EnableCloudwatchLogsExports:
+    Description: The list of log types that need to be enabled for exporting to CloudWatch Logs.
+    Type: List<String>
+    Default: ["error"]
+    AllowedValues:
+      - audit
+      - error
+      - general
+      - slowquery
+
+Resources:
+  DBCredential:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+        RequireEachIncludedType: true
+
+  myDB:
+    Type: AWS::RDS::DBInstance
+    DependsOn: DBCredential
+    Properties:
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      Engine: MySQL
+      EngineVersion: !Ref EngineVersion
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBCredential}}}"
+      DBName: !Ref DBName
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      MultiAZ: !Ref MultiAZ
+      StorageType: !Ref StorageType
+      Iops: !If [IsIO1Storage, !Ref Iops, !Ref "AWS::NoValue"]
+      DBSubnetGroupName: !Ref DBSubnetGroupName
+      VPCSecurityGroups: !Ref VPCSecurityGroupIds
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      DBParameterGroupName: !Ref DBParameterGroupName
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      EnableCloudwatchLogsExports: !Ref EnableCloudwatchLogsExports
+
+Outputs:
+  DBInstanceEndpoint:
+    Description: The connection endpoint for the RDS database instance.
+    Value: !GetAtt myDB.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-DBInstanceEndpoint"
+
+  DBInstancePort:
+    Description: The port number on which the RDS database instance is listening.
+    Value: !GetAtt myDB.Endpoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}-DBInstancePort"
+
+  DBInstanceArn:
+    Description: The Amazon Resource Name (ARN) of the RDS database instance.
+    Value: !Ref myDB
+    Export:
+      Name: !Sub "${AWS::StackName}-DBInstanceArn"
+
+  DBCredentialSecretArn:
+    Description: The Amazon Resource Name (ARN) of the Secrets Manager secret storing the DB credentials.
+    Value: !Ref DBCredential
+    Export:
+      Name: !Sub "${AWS::StackName}-DBCredentialSecretArn"
+
+  DBInstanceResourceId:
+    Description: The unique identifier for the RDS database instance.
+    Value: !GetAtt myDB.DbiResourceId
+    Export:
+      Name: !Sub "${AWS::StackName}-DBInstanceResourceId"
+
+  DBInstanceStatus:
+    Description: The current status of the RDS database instance.
+    Value: !GetAtt myDB.DBInstanceStatus
+    Export:
+      Name: !Sub "${AWS::StackName}-DBInstanceStatus"
