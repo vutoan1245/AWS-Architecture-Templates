@@ -1,0 +1,246 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AWS CloudFormation Template to Create an ElastiCache for Redis Cluster"
+
+Parameters:
+  CacheClusterId:
+    Description: "The identifier for the cache cluster."
+    Type: String
+    Default: "my-redis-cluster"
+
+  CacheNodeType:
+    Description: "The compute and memory capacity of the nodes in the node group."
+    Type: String
+    Default: "cache.t3.micro"
+    AllowedValues:
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+      - cache.m5.large
+      - cache.m5.xlarge
+      - cache.m5.2xlarge
+      - cache.r5.large
+      - cache.r5.xlarge
+      - cache.r5.2xlarge
+      # Add other instance types as needed
+
+  NumCacheNodes:
+    Description: "The number of cache nodes the cache cluster should have. For Redis, this value must be 1."
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 1
+
+  EngineVersion:
+    Description: "The Redis engine version to use."
+    Type: String
+    Default: "7.0"
+    AllowedValues:
+      - "6.x"
+      - "7.0"
+      # Add other supported versions
+
+  PreferredAvailabilityZone:
+    Description: "The preferred availability zone for the cache cluster."
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: !Select [0, !GetAZs ""]
+
+  AZMode:
+    Description: "Specifies whether the nodes in this Memcached node group are created in a single availability zone or across multiple availability zones."
+    Type: String
+    Default: "single-az"
+    AllowedValues:
+      - "single-az"
+      - "cross-az"
+
+  PreferredMaintenanceWindow:
+    Description: "The time range (in UTC) during which weekly maintenance on the cache cluster is performed."
+    Type: String
+    Default: "sun:23:00-mon:01:30"
+
+  VpcSecurityGroupIds:
+    Description: "A list of VPC security group IDs."
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  CacheSubnetGroupName:
+    Description: "The name of the cache subnet group associated with the cache cluster."
+    Type: String
+    Default: "my-redis-subnet-group"
+
+  SnapshotRetentionLimit:
+    Description: "The number of days for which ElastiCache retains automatic snapshots before deleting them."
+    Type: Number
+    Default: 5
+    MinValue: 0
+
+  SnapshotWindow:
+    Description: "The daily time range (in UTC) during which ElastiCache takes a daily snapshot of your node group."
+    Type: String
+    Default: "03:00-04:00"
+
+  AutoMinorVersionUpgrade:
+    Description: "Indicates whether minor engine upgrades will be applied automatically to the cache cluster during the maintenance window."
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  ReplicationGroupId:
+    Description: "The replication group identifier. This parameter is stored as a lowercase string."
+    Type: String
+    Default: "my-redis-replication-group"
+
+  ReplicationGroupDescription:
+    Description: "A user-created description for the replication group."
+    Type: String
+    Default: "Redis replication group for high availability"
+
+  NumCacheClusters:
+    Description: "The number of cache clusters (nodes) the replication group should have."
+    Type: Number
+    Default: 2
+    MinValue: 2
+
+  AutomaticFailoverEnabled:
+    Description: "Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails."
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  MultiAZEnabled:
+    Description: "Specifies whether Multi-AZ is enabled."
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  CacheParameterGroupName:
+    Description: "The name of the parameter group associated with the Redis replication group."
+    Type: String
+    Default: "default.redis7"
+
+  Port:
+    Description: "The port number on which each of the cache nodes will accept connections."
+    Type: Number
+    Default: 6379
+
+  NotifyKeyspaceEvents:
+    Description: "Specifies the Redis notify-keyspace-events setting."
+    Type: String
+    Default: "Ex"
+
+  MaxMemoryPolicy:
+    Description: "Specifies the Redis maxmemory-policy setting."
+    Type: String
+    Default: "allkeys-lru"
+    AllowedValues:
+      - "volatile-lru"
+      - "allkeys-lru"
+      - "volatile-random"
+      - "allkeys-random"
+      - "volatile-ttl"
+      - "noeviction"
+
+  CidrIp:
+    Description: "The CIDR block to allow access to the Redis cluster."
+    Type: String
+    Default: "0.0.0.0/0"
+
+  VpcId:
+    Description: "The ID of the VPC where the Redis cluster will be deployed."
+    Type: AWS::EC2::VPC::Id
+
+  SubnetA:
+    Description: "The ID of the first subnet."
+    Type: AWS::EC2::Subnet::Id
+
+  SubnetB:
+    Description: "The ID of the second subnet."
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  MyRedisCacheCluster:
+    Type: "AWS::ElastiCache::CacheCluster"
+    Properties:
+      CacheClusterId: !Ref CacheClusterId
+      Engine: "redis"
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheNodes: !Ref NumCacheNodes
+      EngineVersion: !Ref EngineVersion
+      PreferredAvailabilityZone: !Ref PreferredAvailabilityZone
+      AZMode: !Ref AZMode
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      VpcSecurityGroupIds: !Ref VpcSecurityGroupIds
+      CacheSubnetGroupName: !Ref CacheSubnetGroupName
+      SnapshotRetentionLimit: !Ref SnapshotRetentionLimit
+      SnapshotWindow: !Ref SnapshotWindow
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      Tags:
+        - Key: "Name"
+          Value: !Ref CacheClusterId
+
+  MyRedisReplicationGroup:
+    Type: "AWS::ElastiCache::ReplicationGroup"
+    Properties:
+      ReplicationGroupId: !Ref ReplicationGroupId
+      ReplicationGroupDescription: !Ref ReplicationGroupDescription
+      CacheNodeType: !Ref CacheNodeType
+      Engine: "redis"
+      EngineVersion: !Ref EngineVersion
+      NumCacheClusters: !Ref NumCacheClusters
+      AutomaticFailoverEnabled: !Ref AutomaticFailoverEnabled
+      MultiAZEnabled: !Ref MultiAZEnabled
+      SnapshotRetentionLimit: !Ref SnapshotRetentionLimit
+      SnapshotWindow: !Ref SnapshotWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      CacheParameterGroupName: !Ref CacheParameterGroupName
+      SecurityGroupIds: !Ref VpcSecurityGroupIds
+      CacheSubnetGroupName: !Ref CacheSubnetGroupName
+      Tags:
+        - Key: "Name"
+          Value: !Ref ReplicationGroupId
+      Port: !Ref Port
+
+  MyRedisParameterGroup:
+    Type: "AWS::ElastiCache::ParameterGroup"
+    Properties:
+      CacheParameterGroupFamily: !Ref CacheParameterGroupName
+      Description: "Custom parameter group for Redis"
+      Properties:
+        notify-keyspace-events: !Ref NotifyKeyspaceEvents
+        maxmemory-policy: !Ref MaxMemoryPolicy
+
+  MyRedisSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security group for Redis"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: !Ref Port
+          ToPort: !Ref Port
+          CidrIp: !Ref CidrIp
+
+  MyRedisSubnetGroup:
+    Type: "AWS::ElastiCache::SubnetGroup"
+    Properties:
+      Description: "Subnet group for Redis"
+      SubnetIds:
+        - !Ref SubnetA
+        - !Ref SubnetB
+
+Outputs:
+  RedisClusterEndpoint:
+    Description: "Redis Cluster Endpoint"
+    Value: !GetAtt MyRedisCacheCluster.RedisEndpoint.Address
+
+  RedisReplicationGroupPrimaryEndpoint:
+    Description: "Redis Replication Group Primary Endpoint"
+    Value: !GetAtt MyRedisReplicationGroup.PrimaryEndPoint.Address
+
+  RedisReplicationGroupReaderEndpoint:
+    Description: "Redis Replication Group Reader Endpoint"
+    Value: !GetAtt MyRedisReplicationGroup.ReadEndPoint.Addresses
