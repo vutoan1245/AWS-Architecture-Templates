@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create a NAT Gateway.
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The ID of the VPC.
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: The ID of the public subnet where the NAT Gateway will be created.
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: The ID of the private subnet where the route table will be associated.
+
+Resources:
+  # Create an Elastic IP for the NAT Gateway
+  NatGatewayEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: vpc
+
+  # Create the NAT Gateway
+  NatGateway:
+    Type: "AWS::EC2::NatGateway"
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: NATGateway
+
+  # Create a route table
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  # Create a route in the route table that directs internet-bound traffic to the NAT Gateway
+  NatGatewayRoute:
+    Type: "AWS::EC2::Route"
+    DependsOn: NatGateway
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGateway
+
+  # Associate the route table with the private subnet
+  PrivateSubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref RouteTable
+
+Outputs:
+  NatGatewayId:
+    Description: The ID of the created NAT Gateway.
+    Value: !Ref NatGateway
+
+  NatGatewayElasticIP:
+    Description: The Elastic IP of the NAT Gateway.
+    Value: !Ref NatGatewayEIP
