@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  AWS CloudFormation Template for DynamoDB Table Creation. 
+  This template provisions a DynamoDB table with various configuration options, 
+  including indexes, streams, encryption, and time-to-live (TTL) settings.
+
+Metadata:
+  License: Apache-2.0
+
+Parameters:
+  TableName:
+    Description: "The name of the DynamoDB table."
+    Type: String
+    Default: MyDynamoDBTable
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: "^[a-zA-Z0-9_.-]+$"
+    ConstraintDescription: "Table name must be between 3 and 255 characters and can contain only alphanumeric characters, underscores, hyphens, and periods."
+    # Allows users to specify a custom table name.
+
+  HashKeyElementName:
+    Description: "The name of the hash key (primary key) for the DynamoDB table."
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9]*"
+    MinLength: 1
+    MaxLength: 2048
+    ConstraintDescription: "The hash key name must contain only alphanumeric characters."
+    # Defines the name of the hash key (primary key) for the table.
+
+  HashKeyElementType:
+    Description: "The data type for the hash key (primary key). Use 'S' for String or 'N' for Number."
+    Type: String
+    Default: S
+    AllowedValues:
+      - S
+      - N
+    ConstraintDescription: "The hash key type must be either 'S' for String or 'N' for Number."
+    # Specifies the type of the hash key, either String (S) or Number (N).
+
+  RangeKeyElementName:
+    Description: "The name of the range key (sort key) for the DynamoDB table, if applicable."
+    Type: String
+    Default: ""
+    MinLength: 0
+    MaxLength: 2048
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: "The range key name must contain only alphanumeric characters."
+    # Optional parameter for specifying the name of the range key (sort key).
+
+  RangeKeyElementType:
+    Description: "The data type for the range key (sort key). Use 'S' for String or 'N' for Number."
+    Type: String
+    Default: S
+    AllowedValues:
+      - S
+      - N
+    ConstraintDescription: "The range key type must be either 'S' for String or 'N' for Number."
+    # Specifies the type of the range key, if used.
+
+  ReadCapacityUnits:
+    Description: "The provisioned read throughput for the DynamoDB table."
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 10000
+    ConstraintDescription: "Read capacity units must be between 1 and 10,000."
+    # Configures the read capacity units, controlling the read throughput.
+
+  WriteCapacityUnits:
+    Description: "The provisioned write throughput for the DynamoDB table."
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 10000
+    ConstraintDescription: "Write capacity units must be between 1 and 10,000."
+    # Configures the write capacity units, controlling the write throughput.
+
+  PointInTimeRecovery:
+    Description: "Enable point-in-time recovery (PITR) for the DynamoDB table."
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+    ConstraintDescription: "PITR must be either true or false."
+    # Option to enable point-in-time recovery, allowing recovery to any second in the past 35 days.
+
+  SSEEnabled:
+    Description: "Enable server-side encryption (SSE) for the DynamoDB table."
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+    ConstraintDescription: "SSE must be either true or false."
+    # Option to enable server-side encryption for the DynamoDB table.
+
+  SSEKMSKeyId:
+    Description: "The KMS key ID for server-side encryption, if applicable."
+    Type: String
+    Default: ""
+    MinLength: 0
+    MaxLength: 2048
+    ConstraintDescription: "KMS key ID must be a valid ARN if specified."
+    # Allows specifying a custom KMS key for encryption; if empty, AWS manages the key.
+
+  StreamSpecification:
+    Description: "Enable DynamoDB Streams for the table."
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+    ConstraintDescription: "StreamSpecification must be either true or false."
+    # Option to enable DynamoDB Streams, which captures table activity.
+
+  StreamViewType:
+    Description: "The type of view for DynamoDB Streams, if enabled."
+    Type: String
+    Default: NEW_AND_OLD_IMAGES
+    AllowedValues:
+      - NEW_IMAGE
+      - OLD_IMAGE
+      - NEW_AND_OLD_IMAGES
+      - KEYS_ONLY
+    ConstraintDescription: "StreamViewType must be one of the allowed values."
+    # Configures the type of data view that Streams should provide.
+
+  TimeToLiveAttribute:
+    Description: "The name of the TTL attribute, if Time-to-Live (TTL) is enabled."
+    Type: String
+    Default: ""
+    MinLength: 0
+    MaxLength: 255
+    ConstraintDescription: "TTL attribute name must be between 1 and 255 characters."
+    # Option to specify the attribute name for Time-to-Live (TTL), which automatically deletes expired items.
+
+Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        - AttributeName: !Ref HashKeyElementName
+          AttributeType: !Ref HashKeyElementType
+        - !If
+          - HasRangeKey
+          - AttributeName: !Ref RangeKeyElementName
+            AttributeType: !Ref RangeKeyElementType
+          - !Ref "AWS::NoValue"
+      KeySchema:
+        - AttributeName: !Ref HashKeyElementName
+          KeyType: HASH
+        - !If
+          - HasRangeKey
+          - AttributeName: !Ref RangeKeyElementName
+            KeyType: RANGE
+          - !Ref "AWS::NoValue"
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref ReadCapacityUnits
+        WriteCapacityUnits: !Ref WriteCapacityUnits
+      SSESpecification:
+        SSEEnabled: !Ref SSEEnabled
+        KMSMasterKeyId: !If
+          - UseKMSKey
+          - !Ref SSEKMSKeyId
+          - !Ref "AWS::NoValue"
+      StreamSpecification:
+        StreamEnabled: !Ref StreamSpecification
+        StreamViewType: !If
+          - UseStreams
+          - !Ref StreamViewType
+          - !Ref "AWS::NoValue"
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref PointInTimeRecovery
+      TimeToLiveSpecification:
+        AttributeName: !If
+          - UseTTL
+          - !Ref TimeToLiveAttribute
+          - !Ref "AWS::NoValue"
+        Enabled: !If
+          - UseTTL
+          - true
+          - false
+    # Creates the DynamoDB table with all the specified properties including optional range key, streams, encryption, TTL, and PITR.
+
+Conditions:
+  HasRangeKey: !Not [!Equals [!Ref RangeKeyElementName, ""]]
+  UseKMSKey: !Not [!Equals [!Ref SSEKMSKeyId, ""]]
+  UseStreams: !Equals [!Ref StreamSpecification, true]
+  UseTTL:
+    !Not [!Equals [!Ref TimeToLiveAttribute, ""]]
+    # Defines conditions to check if optional features are used (range key, custom KMS key, streams, TTL).
+
+Outputs:
+  TableName:
+    Description: "The name of the DynamoDB table created by this template."
+    Value: !Ref DynamoDBTable
+    # Outputs the name of the DynamoDB table.
+
+  TableArn:
+    Description: "The ARN of the DynamoDB table created by this template."
+    Value: !GetAtt DynamoDBTable.Arn
+    # Outputs the ARN of the DynamoDB table.
+
+  TableStreamArn:
+    Description: "The ARN of the DynamoDB Streams, if enabled."
+    Value: !GetAtt DynamoDBTable.StreamArn
+    Condition: UseStreams
+    # Outputs the ARN of the DynamoDB Streams, only if streams are enabled.
+
+  TableId:
+    Description: "The Table ID of the DynamoDB table."
+    Value: !GetAtt DynamoDBTable.TableId
+    # Outputs the Table ID of the DynamoDB table.
+
+  TableProvisionedReadCapacity:
+    Description: "The provisioned read capacity units for the DynamoDB table."
+    Value: !Ref ReadCapacityUnits
+    # Outputs the provisioned read capacity units.
+
+  TableProvisionedWriteCapacity:
+    Description: "The provisioned write capacity units for the DynamoDB table."
+    Value: !Ref WriteCapacityUnits
+    # Outputs the provisioned write capacity units.
+
+  TableSSEDescription:
+    Description: "Details about server-side encryption (SSE) settings for the DynamoDB table."
+    Value: !GetAtt DynamoDBTable.SSEDescription
+    # Outputs the server-side encryption details for the table.
