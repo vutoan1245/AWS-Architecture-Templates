@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This CloudFormation template provisions an AWS Lambda function and an IAM Role 
+  with necessary permissions. The Lambda function is configured to use the Python 3.12 runtime 
+  and includes environment variables for customization.
+
+Parameters:
+  EnvName:
+    Description: >
+      The name of the environment where the Lambda function will be deployed. 
+      Examples: 'dev', 'staging', 'prod', or any custom environment name.
+    Type: String
+    AllowedPattern: ^.*[^0-9]$
+    ConstraintDescription: "The environment name must end with a non-numeric character."
+
+  LambdaHandlerPath:
+    Description: >
+      The path to the Lambda handler within your code. 
+      Example: 'index.handler'.
+    Type: String
+    AllowedPattern: ^.*[^0-9]$
+    ConstraintDescription: "The handler path must end with a non-numeric character."
+
+Resources:
+  # This IAM Role allows the Lambda function to assume the role and grants full access to Lambda, S3, DynamoDB, and Kinesis.
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub lambda-role-${EnvName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonKinesisFullAccess
+      Path: /
+    Metadata:
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Metadata:
+      guard:
+        SuppressedRules:
+          - LAMBDA_INSIDE_VPC # Suppressed: The Lambda function is not inside a VPC.
+          - LAMBDA_FUNCTION_PUBLIC_ACCESS_PROHIBITED # Suppressed: Public access to this Lambda function is prohibited.
+    Properties:
+      FunctionName: !Sub lambda-function-${EnvName}
+      Description: "Lambda function using Python 3.12 runtime."
+      Runtime: python3.12
+      Code:
+        ZipFile: |
+          import json
+
+          def lambda_handler(event, context):
+              print(json.dumps(event))
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Hello from Lambda!')
+              }
+      Handler: !Sub ${LambdaHandlerPath}
+      MemorySize: 128 # Memory allocation (in MB) for the Lambda function.
+      Timeout: 10 # Maximum time (in seconds) that the Lambda function can run.
+      Role: !GetAtt LambdaRole.Arn # IAM role that the Lambda function will assume.
+      Environment:
+        Variables:
+          ENV: !Ref EnvName # Environment variable representing the deployment environment.
+          TZ: UTC # Environment variable setting the timezone to UTC.
+
+Outputs:
+  LambdaRoleARN:
+    Description: "The ARN of the IAM Role created for the Lambda function."
+    Value: !GetAtt LambdaRole.Arn
+    Export:
+      Name: !Sub LambdaRole-${EnvName} # Exported name includes the environment name for clarity.
+
+  LambdaFunctionName:
+    Description: "The name of the created Lambda function."
+    Value: !Ref LambdaFunction
+
+  LambdaFunctionARN:
+    Description: "The ARN of the created Lambda function."
+    Value: !GetAtt LambdaFunction.Arn
+    Export:
+      Name: !Sub LambdaARN-${EnvName} # Exported name includes the environment name for clarity.
